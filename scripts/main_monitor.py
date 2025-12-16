@@ -131,6 +131,7 @@ class MainMonitor(Node):
 
     # ───────────────────── 런처 ─────────────────────
     def launch_navigation(self):
+        
         nav = self.run_unique("nav",
             ['ros2','launch','hearbear','nav_with_auto_init.launch.py'])
         if not nav: return
@@ -141,6 +142,7 @@ class MainMonitor(Node):
     def launch_audio(self):
         self.run_unique("audio",
             ['ros2','launch','hearbear','audio_doa_rotate_launch.py'])
+    
 
     def launch_mapping(self):
         for k in ("nav", "audio"):
@@ -167,10 +169,11 @@ class MainMonitor(Node):
                            self.proc_table['audio'].poll() is None)
             nav_alive   = ('nav' in self.proc_table and
                            self.proc_table['nav'].poll() is None)
+            
             busy_else = [k for k,p in self.proc_table.items()
-                         if k not in ('nav','audio','bringup')
+                         if k not in ('nav', 'audio', 'bringup')
                          and p.poll() is None]
-
+        
         if nav_alive and not busy_else:
             if not audio_alive:
                 self.report("Audio 조건 만족 → 실행")
@@ -194,7 +197,6 @@ class MainMonitor(Node):
             self.audio_busy = False
     
     def reexplore_cb(self, _msg: String) -> None:
-    
         if self.busy_general:
             self.report("reexplore_map 거부 – 다른 작업 수행 중", "info")
             return
@@ -203,7 +205,7 @@ class MainMonitor(Node):
         if self.audio_busy:
             self.report("reexplore_map 거부 – Audio 노드 내비게이션 중", "info")
             return
-
+    
         # 1) 다른 busy 작업 있는지 확인
         with self.proc_lock:
             busy_else = [
@@ -214,7 +216,7 @@ class MainMonitor(Node):
         if busy_else:
             self.report(f"reexplore_map 거부 – 다른 작업 진행 중: {busy_else}", "info")
             return
-
+    
         # 2) 모든 프로세스 종료 + 지도 삭제 + Mapping 재시작
         self.report("재탐색 요청 → 모든 프로세스 종료 + 지도 삭제 + Mapping 재시작")
         for k in list(self.proc_table):
@@ -222,6 +224,7 @@ class MainMonitor(Node):
         for f in (self.map_yaml, self.map_png, self.map_pgm):
             f.unlink(missing_ok=True)
         self.launch_mapping()
+
 
     def pixel_goal_cb(self, msg: String) -> None:
     

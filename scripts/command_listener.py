@@ -11,7 +11,7 @@ class CommandListener(Node):
         # FastAPI와 동일한 토픽 이름을 지정하세요
         self.subscription = self.create_subscription(
             String,
-            'command',        # 혹은 'robot_command' 등 퍼블리셔와 맞춰주세요
+            '/command',        # 혹은 'robot_command' 등 퍼블리셔와 맞춰주세요
             self.callback,
             10
         )

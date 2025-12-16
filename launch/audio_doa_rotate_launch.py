@@ -16,7 +16,7 @@ def generate_launch_description():
         name='audio_doa_rotate',
         output='screen',
         parameters=[
-            {'threshold_db': -20.0},
+            {'threshold_db': -15.0},
             {'record_sec':   5.0},
             {'ang_vel':      0.5},
         ],

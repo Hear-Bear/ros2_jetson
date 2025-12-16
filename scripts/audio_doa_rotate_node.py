@@ -28,12 +28,14 @@ import numpy as np
 import sounddevice as sd
 import soundfile as sf
 
+import cv2
+
 sys.path.append(os.path.expanduser("~/turtlebot3_ws"))
 from usb_4_mic_array.tuning import Tuning
 import usb.core, usb.util
 
-sys.path.append(os.path.expanduser("~/turtlebot3_ws/backend_python"))
-from learning.trt_execute import classify_noise
+sys.path.append(os.path.expanduser("~/turtlebot3_ws/audio_project"))
+from trt_execute import classify_noise
 
 from sound_goal_utils import select_px_py
 from pixel_to_nav_goal import PixelToNavGoal
@@ -51,13 +53,16 @@ class AudioDoaRotateNode(Node):
         super().__init__('audio_doa_rotate')
 
         # ── 파라미터 ────────────────────────────
-        self.threshold_db    = -12.0           # dBFS 임계값
+        self.threshold_db    = -20.0           # dBFS 임계값
         self.record_sec      = 5.0             # 녹음 길이(s)
         self.sample_rate     = 16000           # Hz
         self.ang_vel         = 0.5             # rad/s
         self.angle_tolerance = math.radians(5) # 회전 스킵 허용 오차(rad)
         self.busy            = False           # 처리 중 플래그
         
+        # ── 카메라 설정 파라미터 추가 ─────────────────── ← 추가된 부분
+        self.camera_index = 0  # 사용할 카메라 장치 번호 (보통 0)
+        self.image_save_path = Path('~/turtlebot3_ws/captured_images').expanduser()
         
         # 마지막으로 녹음된 파일 경로 저장용
         self.last_wav = None
@@ -265,6 +270,7 @@ class AudioDoaRotateNode(Node):
         status = future.result().status
         if status == GoalStatus.STATUS_SUCCEEDED:
             self.get_logger().info('navigation succeeded')
+            self._capture_and_save_image()
         else:
             self.get_logger().warn(f'navigation failed ({status})')
     
@@ -325,6 +331,41 @@ class AudioDoaRotateNode(Node):
         # 처리 끝나면 busy 해제
         self.busy = False
         self.get_logger().info('back to listening')
+        
+        
+    # ── 사진 촬영 및 저장 함수 ─────────────────── ← 추가된 부분
+    def _capture_and_save_image(self):
+        """카메라에서 이미지를 캡처하고 지정된 경로에 저장합니다."""
+        self.get_logger().info('Capturing image upon arrival...')
+        try:
+            # VideoCapture 객체 생성
+            cap = cv2.VideoCapture(self.camera_index)
+
+            # 카메라가 정상적으로 열렸는지 확인
+            if not cap.isOpened():
+                self.get_logger().error(f"Cannot open camera index {self.camera_index}")
+                return
+
+            # 프레임 한 장 읽기
+            ret, frame = cap.read()
+            
+            # 카메라 장치 해제
+            cap.release()
+
+            if ret:
+                # 저장 경로가 없으면 생성
+                self.image_save_path.mkdir(parents=True, exist_ok=True)
+                
+                file_path = self.image_save_path / f'enviroment.jpg'
+                
+                # 이미지 저장
+                cv2.imwrite(str(file_path), frame)
+                self.get_logger().info(f'Successfully saved image to: {file_path}')
+            else:
+                self.get_logger().warn("Failed to capture frame from camera.")
+
+        except Exception as e:
+            self.get_logger().error(f'An error occurred during image capture: {e}')
 
 def main():
     rclpy.init()
